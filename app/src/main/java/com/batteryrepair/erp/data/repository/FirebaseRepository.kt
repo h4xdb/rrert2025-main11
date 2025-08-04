@@ -3,9 +3,13 @@ package com.batteryrepair.erp.data.repository
 import com.batteryrepair.erp.data.models.*
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.database.*
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 import java.text.SimpleDateFormat
 import java.util.*
@@ -14,6 +18,7 @@ class FirebaseRepository {
     
     private val database = FirebaseDatabase.getInstance()
     private val auth = FirebaseAuth.getInstance()
+    private val repositoryScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     
     // References
     private val usersRef = database.getReference("users")
@@ -36,6 +41,9 @@ class FirebaseRepository {
                 if (user != null) {
                     Result.success(user)
                 } else {
+                    // Create default user if not exists
+                    val defaultUser = createDefaultUser(firebaseUser.uid, username)
+                    usersRef.child(firebaseUser.uid).setValue(defaultUser).await()
                     Result.failure(Exception("User data not found"))
                 }
             } ?: Result.failure(Exception("Authentication failed"))
@@ -44,10 +52,25 @@ class FirebaseRepository {
         }
     }
     
+    private fun createDefaultUser(uid: String, username: String): User {
+        val role = when (username) {
+            "admin" -> UserRole.ADMIN
+            "staff" -> UserRole.SHOP_STAFF
+            else -> UserRole.TECHNICIAN
+        }
+        return User(
+            id = uid,
+            username = username,
+            fullName = username.replaceFirstChar { it.uppercase() },
+            role = role,
+            isActive = true
+        )
+    }
+    
     fun getCurrentUser(): User? {
-        return auth.currentUser?.let { firebaseUser ->
-            // This would typically be cached or retrieved from local storage
-            null // Placeholder - implement proper user caching
+        return auth.currentUser?.uid?.let { uid ->
+            // Return cached user or null - implement proper caching if needed
+            null
         }
     }
     
@@ -106,12 +129,40 @@ class FirebaseRepository {
         val listener = object : ValueEventListener {
             override fun onDataChange(snapshot: DataSnapshot) {
                 val batteries = mutableListOf<Battery>()
+                val totalBatteries = snapshot.childrenCount.toInt()
+                var processedCount = 0
+                
                 for (batterySnapshot in snapshot.children) {
                     batterySnapshot.getValue(Battery::class.java)?.let { battery ->
-                        batteries.add(battery)
+                        // Load customer data for each battery
+                        repositoryScope.launch {
+                            val customerResult = getCustomer(battery.customerId)
+                            customerResult.fold(
+                                onSuccess = { customer ->
+                                    synchronized(batteries) {
+                                        batteries.add(battery.copy(customer = customer))
+                                        processedCount++
+                                        if (processedCount == totalBatteries) {
+                                            trySend(batteries.sortedByDescending { it.inwardDate })
+                                        }
+                                    }
+                                },
+                                onFailure = {
+                                    synchronized(batteries) {
+                                        batteries.add(battery)
+                                        processedCount++
+                                        if (processedCount == totalBatteries) {
+                                            trySend(batteries.sortedByDescending { it.inwardDate })
+                                        }
+                                    }
+                                }
+                            )
+                        }
                     }
                 }
-                trySend(batteries.sortedByDescending { it.inwardDate })
+                if (totalBatteries == 0) {
+                    trySend(emptyList())
+                }
             }
             
             override fun onCancelled(error: DatabaseError) {
@@ -128,12 +179,40 @@ class FirebaseRepository {
         val listener = object : ValueEventListener {
             override fun onDataChange(snapshot: DataSnapshot) {
                 val batteries = mutableListOf<Battery>()
+                val totalBatteries = snapshot.childrenCount.toInt()
+                var processedCount = 0
+                
                 for (batterySnapshot in snapshot.children) {
                     batterySnapshot.getValue(Battery::class.java)?.let { battery ->
-                        batteries.add(battery)
+                        // Load customer data for each battery
+                        repositoryScope.launch {
+                            val customerResult = getCustomer(battery.customerId)
+                            customerResult.fold(
+                                onSuccess = { customer ->
+                                    synchronized(batteries) {
+                                        batteries.add(battery.copy(customer = customer))
+                                        processedCount++
+                                        if (processedCount == totalBatteries) {
+                                            trySend(batteries.sortedByDescending { it.inwardDate })
+                                        }
+                                    }
+                                },
+                                onFailure = {
+                                    synchronized(batteries) {
+                                        batteries.add(battery)
+                                        processedCount++
+                                        if (processedCount == totalBatteries) {
+                                            trySend(batteries.sortedByDescending { it.inwardDate })
+                                        }
+                                    }
+                                }
+                            )
+                        }
                     }
                 }
-                trySend(batteries.sortedByDescending { it.inwardDate })
+                if (totalBatteries == 0) {
+                    trySend(emptyList())
+                }
             }
             
             override fun onCancelled(error: DatabaseError) {
@@ -267,18 +346,70 @@ class FirebaseRepository {
             val padding = getSetting("battery_id_padding", "4").toInt()
             
             // Get the last battery to determine next number
-            val snapshot = batteriesRef.orderByKey().limitToLast(1).get().await()
-            val lastNum = if (snapshot.exists()) {
-                val lastBattery = snapshot.children.first().getValue(Battery::class.java)
-                lastBattery?.batteryId?.removePrefix(prefix)?.toIntOrNull() ?: (startNum - 1)
-            } else {
-                startNum - 1
+            val snapshot = batteriesRef.get().await()
+            var maxNum = startNum - 1
+            
+            for (batterySnapshot in snapshot.children) {
+                val battery = batterySnapshot.getValue(Battery::class.java)
+                battery?.batteryId?.let { batteryId ->
+                    val numPart = batteryId.removePrefix(prefix)
+                    val num = numPart.toIntOrNull()
+                    if (num != null && num > maxNum) {
+                        maxNum = num
+                    }
+                }
             }
             
-            val nextNum = lastNum + 1
+            val nextNum = maxNum + 1
             "$prefix${nextNum.toString().padStart(padding, '0')}"
         } catch (e: Exception) {
             "BAT${System.currentTimeMillis().toString().takeLast(4)}"
+        }
+    }
+    
+    // Initialize default settings if they don't exist
+    suspend fun initializeDefaultSettings() {
+        try {
+            val settingsSnapshot = settingsRef.get().await()
+            if (!settingsSnapshot.exists()) {
+                val defaultSettings = mapOf(
+                    "battery_id_prefix" to "BAT",
+                    "battery_id_start" to "1",
+                    "battery_id_padding" to "4",
+                    "shop_name" to "Battery Repair Service"
+                )
+                settingsRef.setValue(defaultSettings).await()
+            }
+        } catch (e: Exception) {
+            // Handle error silently
+        }
+    }
+    
+    // Create default users for demo
+    suspend fun createDefaultUsers() {
+        try {
+            // Create admin user
+            try {
+                auth.createUserWithEmailAndPassword("admin@batteryrepair.local", "admin123").await()
+            } else {
+                // User might already exist
+            }
+            
+            // Create staff user
+            try {
+                auth.createUserWithEmailAndPassword("staff@batteryrepair.local", "staff123").await()
+            } catch (e: Exception) {
+                // User might already exist
+            }
+            
+            // Create technician user
+            try {
+                auth.createUserWithEmailAndPassword("technician@batteryrepair.local", "tech123").await()
+            } catch (e: Exception) {
+                // User might already exist
+            }
+        } catch (e: Exception) {
+            // Handle error silently
         }
     }
     

@@ -1,6 +1,7 @@
 package com.batteryrepair.erp.data.models
 
 import android.os.Parcelable
+import com.batteryrepair.erp.R
 import kotlinx.parcelize.Parcelize
 
 @Parcelize
@@ -16,8 +17,8 @@ data class StaffNote(
 ) : Parcelable
 
 enum class NoteType(val displayName: String, val colorRes: Int) {
-    FOLLOWUP("Follow-up", android.R.color.holo_blue_light),
-    REMINDER("Reminder", android.R.color.holo_orange_light),
-    ISSUE("Issue", android.R.color.holo_red_light),
-    RESOLVED("Resolved", android.R.color.holo_green_light)
+    FOLLOWUP("Follow-up", R.color.status_delivered),
+    REMINDER("Reminder", R.color.status_pending),
+    ISSUE("Issue", R.color.status_not_repairable),
+    RESOLVED("Resolved", R.color.status_ready)
 }

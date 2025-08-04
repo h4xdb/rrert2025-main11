@@ -40,12 +40,18 @@ class TechnicianPanelActivity : AppCompatActivity() {
             layoutManager = LinearLayoutManager(this@TechnicianPanelActivity)
             adapter = batteryAdapter
         }
+        
+        binding.swipeRefresh.setOnRefreshListener {
+            loadPendingBatteries()
+        }
     }
     
     private fun loadPendingBatteries() {
+        binding.swipeRefresh.isRefreshing = true
         lifecycleScope.launch {
             repository.getBatteriesByStatus(BatteryStatus.PENDING).collect { batteries ->
                 batteryAdapter.submitList(batteries)
+                binding.swipeRefresh.isRefreshing = false
             }
         }
     }

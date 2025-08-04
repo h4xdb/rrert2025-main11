@@ -60,6 +60,10 @@ dependencies {
     implementation 'com.google.firebase:firebase-auth-ktx'
     implementation 'com.google.firebase:firebase-analytics-ktx'
     
+    // Coroutines
+    implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3'
+    implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.7.3'
+    
     // Additional libraries
     implementation 'com.github.bumptech.glide:glide:4.16.0'
     implementation 'com.journeyapps:zxing-android-embedded:4.3.0'

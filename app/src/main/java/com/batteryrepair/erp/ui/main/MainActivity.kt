@@ -29,6 +29,7 @@ class MainActivity : AppCompatActivity() {
         setupToolbar()
         setupRecyclerView()
         setupFAB()
+        setupSwipeRefresh()
         loadDashboardData()
     }
     
@@ -63,14 +64,23 @@ class MainActivity : AppCompatActivity() {
         }
     }
     
+    private fun setupSwipeRefresh() {
+        binding.swipeRefresh.setOnRefreshListener {
+            loadDashboardData()
+        }
+    }
+    
     private fun loadDashboardData() {
+        binding.swipeRefresh.isRefreshing = true
         lifecycleScope.launch {
             repository.getDashboardStats().fold(
                 onSuccess = { stats ->
                     dashboardAdapter.updateStats(stats)
+                    binding.swipeRefresh.isRefreshing = false
                 },
                 onFailure = { error ->
-                    // Handle error
+                    binding.swipeRefresh.isRefreshing = false
+                    // Show error message or retry option
                 }
             )
         }

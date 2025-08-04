@@ -1,6 +1,7 @@
 package com.batteryrepair.erp.data.models
 
 import android.os.Parcelable
+import com.batteryrepair.erp.R
 import kotlinx.parcelize.Parcelize
 
 @Parcelize
@@ -20,10 +21,10 @@ data class Battery(
 ) : Parcelable
 
 enum class BatteryStatus(val displayName: String, val colorRes: Int) {
-    RECEIVED("Received", android.R.color.darker_gray),
-    PENDING("Pending", android.R.color.holo_orange_light),
-    READY("Ready", android.R.color.holo_green_light),
-    DELIVERED("Delivered", android.R.color.holo_blue_light),
-    RETURNED("Returned", android.R.color.holo_blue_dark),
-    NOT_REPAIRABLE("Not Repairable", android.R.color.holo_red_light)
+    RECEIVED("Received", R.color.status_received),
+    PENDING("Pending", R.color.status_pending),
+    READY("Ready", R.color.status_ready),
+    DELIVERED("Delivered", R.color.status_delivered),
+    RETURNED("Returned", R.color.status_returned),
+    NOT_REPAIRABLE("Not Repairable", R.color.status_not_repairable)
 }

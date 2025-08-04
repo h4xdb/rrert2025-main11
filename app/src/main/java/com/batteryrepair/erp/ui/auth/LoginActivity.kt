@@ -53,11 +53,25 @@ class LoginActivity : AppCompatActivity() {
                     finish()
                 },
                 onFailure = { error ->
-                    Toast.makeText(this@LoginActivity, "Login failed: ${error.message}", Toast.LENGTH_LONG).show()
+                    val errorMessage = when {
+                        error.message?.contains("password") == true -> "Invalid username or password"
+                        error.message?.contains("network") == true -> "Network error. Please check your connection."
+                        else -> "Login failed: ${error.message}"
+                    }
+                    Toast.makeText(this@LoginActivity, errorMessage, Toast.LENGTH_LONG).show()
                     binding.btnLogin.isEnabled = true
                     binding.btnLogin.text = "Sign In"
                 }
             )
+        }
+    }
+    
+    override fun onStart() {
+        super.onStart()
+        // Check if user is already signed in
+        if (repository.getCurrentUser() != null) {
+            startActivity(Intent(this, MainActivity::class.java))
+            finish()
         }
     }
 }

@@ -59,6 +59,11 @@ class BatteryEntryActivity : AppCompatActivity() {
             return
         }
         
+        if (mobile.length < 10) {
+            Toast.makeText(this, "Please enter a valid mobile number", Toast.LENGTH_SHORT).show()
+            return
+        }
+        
         binding.btnRegister.isEnabled = false
         binding.btnRegister.text = "Registering..."
         

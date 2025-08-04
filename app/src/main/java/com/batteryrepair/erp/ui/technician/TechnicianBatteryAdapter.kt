@@ -32,7 +32,7 @@ class TechnicianBatteryAdapter(
         fun bind(battery: Battery, onStatusUpdate: (Battery, BatteryStatus, String, Double?) -> Unit) {
             binding.tvBatteryId.text = battery.batteryId
             binding.tvBatteryType.text = "${battery.batteryType} (${battery.voltage}/${battery.capacity})"
-            binding.tvCustomerName.text = battery.customer?.name ?: "Loading..."
+            binding.tvCustomerName.text = battery.customer?.name ?: "Unknown Customer"
             binding.tvCustomerMobile.text = battery.customer?.mobile ?: ""
             
             val dateFormat = SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault())
@@ -57,6 +57,11 @@ class TechnicianBatteryAdapter(
                 val selectedStatus = BatteryStatus.values()[binding.spinnerStatus.selectedItemPosition]
                 val comments = binding.etComments.text.toString()
                 val servicePrice = binding.etServicePrice.text.toString().toDoubleOrNull()
+                
+                if (comments.isEmpty()) {
+                    binding.etComments.error = "Please add comments"
+                    return@setOnClickListener
+                }
                 
                 onStatusUpdate(battery, selectedStatus, comments, servicePrice)
                 

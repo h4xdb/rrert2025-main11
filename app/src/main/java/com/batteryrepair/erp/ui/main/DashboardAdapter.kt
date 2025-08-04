@@ -2,10 +2,12 @@ package com.batteryrepair.erp.ui.main
 
 import android.view.LayoutInflater
 import android.view.ViewGroup
+import androidx.core.content.ContextCompat
 import androidx.recyclerview.widget.RecyclerView
 import com.batteryrepair.erp.data.repository.DashboardStats
 import com.batteryrepair.erp.databinding.ItemDashboardStatBinding
 import com.batteryrepair.erp.databinding.ItemDashboardActionBinding
+import com.batteryrepair.erp.R
 
 enum class DashboardAction {
     NEW_BATTERY, TECHNICIAN_PANEL, SEARCH, REPORTS
@@ -63,11 +65,11 @@ class DashboardAdapter(
             is StatsViewHolder -> {
                 stats?.let { stats ->
                     when (position) {
-                        0 -> holder.bind("Total Batteries", stats.totalBatteries.toString(), android.R.color.holo_blue_light)
-                        1 -> holder.bind("Pending", stats.pendingBatteries.toString(), android.R.color.holo_orange_light)
-                        2 -> holder.bind("Ready", stats.readyBatteries.toString(), android.R.color.holo_green_light)
-                        3 -> holder.bind("Completed", stats.completedBatteries.toString(), android.R.color.holo_blue_dark)
-                        4 -> holder.bind("Revenue", "₹${String.format("%.2f", stats.totalRevenue)}", android.R.color.holo_green_dark)
+                        0 -> holder.bind("Total Batteries", stats.totalBatteries.toString(), R.color.primary)
+                        1 -> holder.bind("Pending", stats.pendingBatteries.toString(), R.color.status_pending)
+                        2 -> holder.bind("Ready", stats.readyBatteries.toString(), R.color.status_ready)
+                        3 -> holder.bind("Completed", stats.completedBatteries.toString(), R.color.status_delivered)
+                        4 -> holder.bind("Revenue", "₹${String.format("%.2f", stats.totalRevenue)}", R.color.accent)
                     }
                 }
             }
@@ -83,7 +85,9 @@ class DashboardAdapter(
         fun bind(title: String, value: String, colorRes: Int) {
             binding.tvTitle.text = title
             binding.tvValue.text = value
-            binding.cardView.setCardBackgroundColor(binding.root.context.getColor(colorRes))
+            binding.cardView.setCardBackgroundColor(
+                androidx.core.content.ContextCompat.getColor(binding.root.context, colorRes)
+            )
         }
     }
     
